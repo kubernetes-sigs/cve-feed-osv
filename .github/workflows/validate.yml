@@ -9,6 +9,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # For git diff
 
       - name: Download the JSON schema
         run: wget https://raw.githubusercontent.com/ossf/osv-schema/v1.6.0/validation/schema.json
@@ -17,4 +19,11 @@ jobs:
         run: pip install check-jsonschema
 
       - name: Validate JSON
-        run: check-jsonschema --schemafile schema.json $(git diff --name-only HEAD main | grep .json)
+        run: |
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} | grep .json) && : // Ignore errors
+          if [ -n "$CHANGED_FILES" ]; then
+            echo "Validating JSON files: $CHANGED_FILES"
+            check-jsonschema --schemafile schema.json $CHANGED_FILES
+          else
+            echo "No JSON files changed. Skipping validation."
+          fi
